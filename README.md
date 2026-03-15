@@ -1,6 +1,6 @@
 # Elezaio Installer
 
-A lightweight TUI installer for Elezaio Linux, built with bash and whiptail.
+A lightweight TUI installer for Elezaio Linux, built with bash and gum.
 
 ## Structure
 
@@ -33,11 +33,6 @@ sudo bash install.sh
 - Progress
 - Done & reboot
 
-## Requirements
-
-- `whiptail`
-- `parted`
-- `grub-efi`
 - `squashfs-tools`
 
 ## License
