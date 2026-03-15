@@ -1,38 +1,31 @@
 #!/bin/bash
-# Elezaio Installer - Branding & Colors
+# Elezaio Installer - Branding & Theme
 
-export INSTALLER_TITLE="Elezaio Linux Installer"
-export INSTALLER_VERSION="2026.3r11"
-export INSTALLER_CODENAME="Nova"
-
-# Whiptail colors via NEWT_COLORS
 export NEWT_COLORS='
-root=white,black
-border=black,black
-window=white,black
-shadow=black,black
-title=cyan,black
-button=black,cyan
-actbutton=white,blue
-checkbox=white,black
-actcheckbox=black,cyan
-entry=white,black
-label=cyan,black
-listbox=white,black
-actlistbox=black,cyan
-textbox=white,black
-acttextbox=black,cyan
-helpline=white,black
-roottext=white,black
+root=black,black
+window=white,#1e1e2e
+border=cyan,#1e1e2e
+title=cyan,#1e1e2e
+button=black,#89b4fa
+actbutton=black,#b4d0fb
+compactbutton=black,#89b4fa
+listbox=white,#181825
+actlistbox=black,#89b4fa
+actsellistbox=black,#89b4fa
+textbox=white,#1e1e2e
+acttextbox=white,#313244
+entry=white,#313244
+disentry=white,#45475a
+label=cyan,#1e1e2e
+emptyscale=white,#313244
+fullscale=black,#89b4fa
+helpline=white,#181825
+roottext=white,#181825
 '
 
-# Helper: show branded dialog
+_title="  $INSTALLER_TITLE — $INSTALLER_VERSION \"$INSTALLER_CODENAME\"  "
+_btitle="Elezaio Linux $INSTALLER_VERSION"
+
 branded_dialog() {
-    local type="$1"
-    local title="$2"
-    local msg="$3"
-    shift 3
-    whiptail --title "  $INSTALLER_TITLE  " \
-             --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-             "--$type" "$msg" 20 70 "$@"
+    whiptail --title "$_title" --backtitle "$_btitle" "$@"
 }
