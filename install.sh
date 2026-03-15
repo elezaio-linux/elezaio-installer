@@ -9,7 +9,7 @@ set -uo pipefail
 
 export TERM=xterm-256color
 export NEWT_COLORS_FILE=""
-resize 2>/dev/null || true
+eval $(resize 2>/dev/null) || true
 
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
