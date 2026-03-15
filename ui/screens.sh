@@ -1,179 +1,142 @@
 #!/bin/bash
 # Elezaio Installer - UI Screens
 
-# ── Welcome ──
 ui_welcome() {
-    branded_dialog msgbox "Welcome" \
-"Welcome to Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"
-
-This installer will guide you through installing
-Elezaio Linux on your computer.
-
-WARNING: This will erase data on the selected disk.
-Make sure you have backups before continuing.
-
-Press OK to begin."
+    branded_dialog --msgbox "\n\
+  Welcome to Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"\n\n\
+  This installer will guide you through installing\n\
+  Elezaio Linux to your computer.\n\n\
+  Make sure you have:\n\
+    • A disk with at least 20 GB free\n\
+    • An internet connection (for packages)\n\
+    • UEFI boot mode enabled\n\n\
+  Press OK to continue." 18 58
 }
 
-# ── Language ──
 ui_language() {
-    LANG_CHOICE=$(whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --menu "Select your language:" 20 70 8 \
-        "en_US.UTF-8" "English (United States)" \
-        "en_GB.UTF-8" "English (United Kingdom)" \
-        "de_DE.UTF-8" "German (Germany)" \
-        "fr_FR.UTF-8" "French (France)" \
-        "es_ES.UTF-8" "Spanish (Spain)" \
-        "it_IT.UTF-8" "Italian (Italy)" \
-        "pt_BR.UTF-8" "Portuguese (Brazil)" \
-        "ar_SA.UTF-8" "Arabic (Saudi Arabia)" \
+    SYSTEM_LANG=$(branded_dialog --menu \
+        "\nSelect your language:" 18 50 8 \
+        "en_US.UTF-8"  "English (United States)" \
+        "en_GB.UTF-8"  "English (United Kingdom)" \
+        "de_DE.UTF-8"  "Deutsch (Germany)" \
+        "fr_FR.UTF-8"  "Français (France)" \
+        "es_ES.UTF-8"  "Español (Spain)" \
+        "it_IT.UTF-8"  "Italiano (Italy)" \
+        "pt_BR.UTF-8"  "Português (Brazil)" \
+        "ar_SA.UTF-8"  "العربية (Arabic)" \
         3>&1 1>&2 2>&3) || exit 0
-
-    export SYSTEM_LANG="$LANG_CHOICE"
+    export SYSTEM_LANG
 }
 
-# ── Keyboard ──
 ui_keyboard() {
-    KB_CHOICE=$(whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --menu "Select your keyboard layout:" 20 70 8 \
-        "us"      "English (US)" \
-        "uk"      "English (UK)" \
-        "de"      "German" \
-        "fr"      "French" \
-        "es"      "Spanish" \
-        "it"      "Italian" \
-        "pt"      "Portuguese" \
-        "arabic"  "Arabic" \
+    SYSTEM_KB=$(branded_dialog --menu \
+        "\nSelect your keyboard layout:" 18 50 8 \
+        "us"     "English (US)" \
+        "uk"     "English (UK)" \
+        "de"     "German" \
+        "fr"     "French" \
+        "es"     "Spanish" \
+        "it"     "Italian" \
+        "br"     "Portuguese (Brazil)" \
+        "ara"    "Arabic" \
         3>&1 1>&2 2>&3) || exit 0
-
-    export SYSTEM_KB="$KB_CHOICE"
+    export SYSTEM_KB
 }
 
-# ── Disk Selection ──
 ui_disk() {
-    # Build disk list
     local disks=()
     while IFS= read -r line; do
         local dev size
         dev=$(echo "$line" | awk '{print $1}')
         size=$(echo "$line" | awk '{print $2}')
         disks+=("/dev/$dev" "$size")
-    done < <(lsblk -dno NAME,SIZE | grep -v loop)
+    done < <(lsblk -dn -o NAME,SIZE -e 7,11 2>/dev/null)
 
-    DISK_CHOICE=$(whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --menu "Select installation disk:\n\nWARNING: All data will be erased!" \
-        20 70 6 "${disks[@]}" \
-        3>&1 1>&2 2>&3) || exit 0
-
-    export TARGET_DISK="$DISK_CHOICE"
-
-    # Confirm
-    branded_dialog yesno "Confirm" \
-"Are you sure you want to install to:
-
-  $TARGET_DISK
-
-ALL DATA ON THIS DISK WILL BE ERASED!
-
-This cannot be undone." || exit 0
-}
-
-# ── Users ──
-ui_users() {
-    # Hostname
-    HOSTNAME=$(whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --inputbox "Enter hostname for this computer:" \
-        10 70 "elezaio" \
-        3>&1 1>&2 2>&3) || exit 0
-
-    # Username
-    USERNAME=$(whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --inputbox "Enter your username:" \
-        10 70 "" \
-        3>&1 1>&2 2>&3) || exit 0
-
-    # Validate username
-    if [[ ! "$USERNAME" =~ ^[a-z][a-z0-9_-]*$ ]]; then
-        branded_dialog msgbox "Error" "Invalid username. Use only lowercase letters, numbers, - and _"
-        ui_users
-        return
-    fi
-
-    # Password
-    PASSWORD=$(whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --passwordbox "Enter password for $USERNAME:" \
-        10 70 "" \
-        3>&1 1>&2 2>&3) || exit 0
-
-    # Confirm password
-    PASSWORD2=$(whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --passwordbox "Confirm password:" \
-        10 70 "" \
-        3>&1 1>&2 2>&3) || exit 0
-
-    if [[ "$PASSWORD" != "$PASSWORD2" ]]; then
-        branded_dialog msgbox "Error" "Passwords do not match. Please try again."
-        ui_users
-        return
-    fi
-
-    export SYSTEM_HOSTNAME="$HOSTNAME"
-    export SYSTEM_USER="$USERNAME"
-    export SYSTEM_PASS="$PASSWORD"
-}
-
-# ── Summary ──
-ui_summary() {
-    branded_dialog yesno "Installation Summary" \
-"Please review your selections:
-
-  Language:   $SYSTEM_LANG
-  Keyboard:   $SYSTEM_KB
-  Disk:       $TARGET_DISK
-  Hostname:   $SYSTEM_HOSTNAME
-  Username:   $SYSTEM_USER
-
-Click Yes to begin installation.
-Click No to go back and change settings." || {
-        ui_welcome
-        ui_language
-        ui_keyboard
-        ui_disk
-        ui_users
-        ui_summary
+    [[ ${#disks[@]} -gt 0 ]] || {
+        branded_dialog --msgbox "No disks found. Cannot continue." 8 40
+        exit 1
     }
+
+    INSTALL_DISK=$(branded_dialog --menu \
+        "\nSelect installation disk:\n\n  WARNING: All data will be erased!" \
+        18 56 6 "${disks[@]}" \
+        3>&1 1>&2 2>&3) || exit 0
+
+    branded_dialog --yesno \
+        "\n  Are you sure you want to erase:\n\n    $INSTALL_DISK\n\n  This cannot be undone!" \
+        12 46 || exit 0
+
+    export INSTALL_DISK
+    export EFI_PART="${INSTALL_DISK}1"
+    export ROOT_PART="${INSTALL_DISK}2"
 }
 
-# ── Progress ──
-ui_progress() {
-    local msg="$1"
-    local pct="$2"
-    echo "$pct" | whiptail \
-        --title "  $INSTALLER_TITLE  " \
-        --backtitle "Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"" \
-        --gauge "$msg" 8 70 0
+ui_users() {
+    SYSTEM_HOSTNAME=$(branded_dialog --inputbox \
+        "\nEnter a hostname for your computer:" \
+        10 50 "elezaio" \
+        3>&1 1>&2 2>&3) || exit 0
+
+    SYSTEM_USER=$(branded_dialog --inputbox \
+        "\nEnter your username (lowercase, no spaces):" \
+        10 50 "user" \
+        3>&1 1>&2 2>&3) || exit 0
+
+    if ! echo "$SYSTEM_USER" | grep -qE '^[a-z][a-z0-9_-]{0,30}$'; then
+        branded_dialog --msgbox "Invalid username. Use lowercase letters, numbers, _ or - only." 8 56
+        ui_users
+        return
+    fi
+
+    local pass1 pass2
+    pass1=$(branded_dialog --passwordbox \
+        "\nEnter password for $SYSTEM_USER:" \
+        10 50 \
+        3>&1 1>&2 2>&3) || exit 0
+
+    pass2=$(branded_dialog --passwordbox \
+        "\nConfirm password:" \
+        10 50 \
+        3>&1 1>&2 2>&3) || exit 0
+
+    if [[ "$pass1" != "$pass2" ]]; then
+        branded_dialog --msgbox "Passwords do not match. Try again." 8 40
+        ui_users
+        return
+    fi
+
+    if [[ ${#pass1} -lt 4 ]]; then
+        branded_dialog --msgbox "Password must be at least 4 characters." 8 44
+        ui_users
+        return
+    fi
+
+    SYSTEM_PASS="$pass1"
+    export SYSTEM_HOSTNAME SYSTEM_USER SYSTEM_PASS
 }
 
-# ── Done ──
+ui_summary() {
+    branded_dialog --yesno \
+        "\n  Installation Summary\n\
+  ─────────────────────────────────\n\
+  Disk:      $INSTALL_DISK\n\
+  Hostname:  $SYSTEM_HOSTNAME\n\
+  Username:  $SYSTEM_USER\n\
+  Language:  $SYSTEM_LANG\n\
+  Keyboard:  $SYSTEM_KB\n\
+  ─────────────────────────────────\n\n\
+  Proceed with installation?" \
+        18 50 || exit 0
+}
+
 ui_done() {
-    branded_dialog msgbox "Installation Complete" \
-"Elezaio Linux has been installed successfully!
-
-Remove the installation media and press OK to reboot."
+    branded_dialog --msgbox \
+        "\n  Installation Complete!\n\n\
+  Elezaio Linux has been installed successfully.\n\n\
+  Username:  $SYSTEM_USER\n\
+  Hostname:  $SYSTEM_HOSTNAME\n\n\
+  Remove the USB drive and press OK to reboot." \
+        16 54
 
     reboot
 }
