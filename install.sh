@@ -16,11 +16,11 @@ eval "$(resize 2>/dev/null)" || true
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 for module in \
-    "$INSTALLER_DIR/config.conf" \
-    "$INSTALLER_DIR/ui/branding.sh" \
-    "$INSTALLER_DIR/ui/screens.sh" \
-    "$INSTALLER_DIR/core/disk.sh" \
-    "$INSTALLER_DIR/core/system.sh"; do
+    source "$INSTALLER_DIR/config.conf"
+    source "$INSTALLER_DIR/ui/branding.sh"
+    source "$INSTALLER_DIR/ui/screens.sh"
+    source "$INSTALLER_DIR/core/disk.sh"
+    source "$INSTALLER_DIR/core/system.sh" do
     [[ -f "$module" ]] || { echo "ERROR: Missing: $module"; exit 1; }
     source "$module"
 done
