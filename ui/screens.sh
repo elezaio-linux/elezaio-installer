@@ -8,7 +8,7 @@ ui_welcome() {
         --width 60 \
         --padding "1 4" \
         --margin "0 0 1 0" \
-        "Welcome to Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"\n\nMake sure you have:\n  • A disk with at least 20 GB free\n  • UEFI boot mode enabled\n  • Internet connection"
+        "$(printf 'Welcome to Elezaio Linux %s "%s"\n\nMake sure you have:\n  • A disk with at least 20 GB free\n  • UEFI boot mode enabled\n  • Internet connection' "$INSTALLER_VERSION" "$INSTALLER_CODENAME")"
 
     gum confirm \
         --affirmative "Continue" \
@@ -33,7 +33,6 @@ ui_language() {
         "it_IT.UTF-8" \
         "pt_BR.UTF-8" \
         "ar_SA.UTF-8") || exit 0
-
     export SYSTEM_LANG
 }
 
@@ -53,53 +52,93 @@ ui_keyboard() {
         "it" \
         "br" \
         "ara") || exit 0
-
     export SYSTEM_KB
 }
 
 ui_disk() {
     print_header
-    gum style --margin "0 0 0 2" --foreground "$GUM_ACCENT" "Select installation disk:"
+    gum style --margin "0 0 0 2" --foreground "$GUM_ACCENT" "Select a disk or partition to install to:"
+    echo ""
 
-    local disk_list=()
-    while IFS= read -r line; do
-        local dev size model
-        dev=$(echo "$line" | awk '{print $1}')
-        size=$(echo "$line" | awk '{print $2}')
-        model=$(echo "$line" | awk '{$1=$2=""; print $0}' | xargs)
-        disk_list+=("/dev/$dev  $size  $model")
+    local display_list=()
+    local choice_list=()
+
+    while IFS= read -r disk_line; do
+        local dname dsize dmodel
+        dname=$(echo "$disk_line" | awk '{print $1}')
+        dsize=$(echo "$disk_line" | awk '{print $2}')
+        dmodel=$(echo "$disk_line" | awk '{$1=$2=""; print $0}' | xargs)
+
+        display_list+=("$(printf "disk  /dev/%s  [%s]  %s" "$dname" "$dsize" "$dmodel")")
+        choice_list+=("/dev/$dname")
+
+        while IFS= read -r part_line; do
+            local pname psize ptype
+            pname=$(echo "$part_line" | awk '{print $1}')
+            psize=$(echo "$part_line" | awk '{print $2}')
+            ptype=$(echo "$part_line" | awk '{$1=$2=""; print $0}' | xargs)
+            display_list+=("$(printf "  └─  /dev/%s  [%s]  %s" "$pname" "$psize" "$ptype")")
+            choice_list+=("/dev/$pname")
+        done < <(lsblk -ln -o NAME,SIZE,PARTTYPENAME "/dev/$dname" 2>/dev/null | tail -n +2)
+
     done < <(lsblk -dn -o NAME,SIZE,MODEL -e 7,11 2>/dev/null)
 
-    [[ ${#disk_list[@]} -gt 0 ]] || die "No disks found!"
+    [[ ${#display_list[@]} -gt 0 ]] || die "No disks found!"
 
-    local selected
-    selected=$(gum choose \
+    local selected_display
+    selected_display=$(gum choose \
         --selected.foreground "$GUM_ACCENT" \
         --cursor.foreground "$GUM_ACCENT" \
-        --height 10 \
-        "${disk_list[@]}") || exit 0
+        --height 15 \
+        "${display_list[@]}") || exit 0
 
-    INSTALL_DISK=$(echo "$selected" | awk '{print $1}')
+    local idx=0
+    local selected_dev=""
+    for item in "${display_list[@]}"; do
+        if [[ "$item" == "$selected_display" ]]; then
+            selected_dev="${choice_list[$idx]}"
+            break
+        fi
+        (( idx++ )) || true
+    done
+
+    # Full disk or partition?
+    if echo "$selected_dev" | grep -qE '[0-9]$'; then
+        # Partition selected - use parent disk for grub
+        INSTALL_DISK=$(echo "$selected_dev" | sed 's/p\?[0-9]*$//')
+        export EFI_PART="$selected_dev"
+        gum style --margin "1 0 0 2" --foreground "$GUM_ACCENT" "Now select the root partition:"
+        ROOT_PART=$(gum choose \
+            --selected.foreground "$GUM_ACCENT" \
+            --cursor.foreground "$GUM_ACCENT" \
+            --height 10 \
+            "${display_list[@]}" ) || exit 0
+        ROOT_PART=$(echo "$ROOT_PART" | awk '{print $2}')
+        export ROOT_PART
+    else
+        # Full disk - auto partition
+        INSTALL_DISK="$selected_dev"
+        if echo "$INSTALL_DISK" | grep -q "nvme\|mmcblk"; then
+            export EFI_PART="${INSTALL_DISK}p1"
+            export ROOT_PART="${INSTALL_DISK}p2"
+        else
+            export EFI_PART="${INSTALL_DISK}1"
+            export ROOT_PART="${INSTALL_DISK}2"
+        fi
+    fi
+
+    export INSTALL_DISK
 
     gum style \
         --foreground "$GUM_DANGER" \
         --margin "1 2" \
-        "WARNING: All data on $INSTALL_DISK will be erased!"
+        "$(printf 'WARNING: All data on %s will be erased!' "$INSTALL_DISK")"
 
     gum confirm \
         --affirmative "Yes, erase it" \
         --negative "Go back" \
         --selected.background "$GUM_DANGER" \
         "Are you sure?" || ui_disk
-
-    export INSTALL_DISK
-    if echo "$INSTALL_DISK" | grep -q "nvme\|mmcblk"; then
-        export EFI_PART="${INSTALL_DISK}p1"
-        export ROOT_PART="${INSTALL_DISK}p2"
-    else
-        export EFI_PART="${INSTALL_DISK}1"
-        export ROOT_PART="${INSTALL_DISK}2"
-    fi
 }
 
 ui_users() {
@@ -158,7 +197,7 @@ ui_summary() {
         --padding "1 4" \
         --border rounded \
         --border-foreground "$GUM_SUBTLE" \
-        "Installation Summary\n\n  Disk:      $INSTALL_DISK\n  Hostname:  $SYSTEM_HOSTNAME\n  Username:  $SYSTEM_USER\n  Language:  $SYSTEM_LANG\n  Keyboard:  $SYSTEM_KB"
+        "$(printf 'Installation Summary\n\n  Disk:      %s\n  Hostname:  %s\n  Username:  %s\n  Language:  %s\n  Keyboard:  %s' "$INSTALL_DISK" "$SYSTEM_HOSTNAME" "$SYSTEM_USER" "$SYSTEM_LANG" "$SYSTEM_KB")"
 
     gum confirm \
         --affirmative "Install" \
@@ -176,7 +215,7 @@ ui_done() {
         --border rounded \
         --border-foreground "$GUM_ACCENT" \
         --foreground "$GUM_ACCENT" \
-        "Installation Complete!\n\nElezaio Linux has been installed.\n\nUsername:  $SYSTEM_USER\nHostname:  $SYSTEM_HOSTNAME\n\nRemove the USB drive and reboot."
+        "$(printf 'Installation Complete!\n\nElezaio Linux has been installed.\n\nUsername:  %s\nHostname:  %s\n\nRemove the USB drive and reboot.' "$SYSTEM_USER" "$SYSTEM_HOSTNAME")"
 
     gum confirm --affirmative "Reboot now" --negative "Stay" "Reboot?" && reboot
 }
