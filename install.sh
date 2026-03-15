@@ -9,6 +9,7 @@ set -uo pipefail
 
 export TERM=xterm-256color
 eval "$(resize 2>/dev/null)" || true
+exec < /dev/tty
 
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
