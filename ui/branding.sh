@@ -2,25 +2,26 @@
 # Elezaio Installer - Branding & Theme
 
 export NEWT_COLORS='
-root=black,black
-window=white,#1e1e2e
-border=cyan,#1e1e2e
-title=cyan,#1e1e2e
-button=black,#89b4fa
-actbutton=black,#b4d0fb
-compactbutton=black,#89b4fa
-listbox=white,#181825
-actlistbox=black,#89b4fa
-actsellistbox=black,#89b4fa
-textbox=white,#1e1e2e
-acttextbox=white,#313244
-entry=white,#313244
-disentry=white,#45475a
-label=cyan,#1e1e2e
-emptyscale=white,#313244
-fullscale=black,#89b4fa
-helpline=white,#181825
-roottext=white,#181825
+root=white,black
+window=white,black
+border=white,black
+shadow=black,black
+title=white,black
+button=black,white
+listbox=white,black
+actlistbox=black,cyan
+actsellistbox=black,cyan
+textbox=white,black
+acttextbox=black,cyan
+entry=black,white
+disentry=gray,black
+label=white,black
+emptyscale=black,black
+fullscale=black,cyan
+helpline=black,cyan
+roottext=white,black
+checkbox=white,black
+actcheckbox=black,cyan
 '
 
 _title="  $INSTALLER_TITLE — $INSTALLER_VERSION \"$INSTALLER_CODENAME\"  "
