@@ -1,112 +1,147 @@
 #!/bin/bash
-# Elezaio Installer - UI Screens
+# Elezaio Installer - UI Screens (gum)
 
 ui_welcome() {
-    branded_dialog --msgbox "\n\
-  Welcome to Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"\n\n\
-  This installer will guide you through installing\n\
-  Elezaio Linux to your computer.\n\n\
-  Make sure you have:\n\
-    • A disk with at least 20 GB free\n\
-    • An internet connection (for packages)\n\
-    • UEFI boot mode enabled\n\n\
-  Press OK to continue." 18 58
+    print_header
+    gum style \
+        --align center \
+        --width 60 \
+        --padding "1 4" \
+        --margin "0 0 1 0" \
+        "Welcome to Elezaio Linux $INSTALLER_VERSION \"$INSTALLER_CODENAME\"\n\nMake sure you have:\n  • A disk with at least 20 GB free\n  • UEFI boot mode enabled\n  • Internet connection"
+
+    gum confirm \
+        --affirmative "Continue" \
+        --negative "Exit" \
+        --selected.background "$GUM_ACCENT" \
+        "Ready to install?" || exit 0
 }
 
 ui_language() {
-    SYSTEM_LANG=$(branded_dialog --menu \
-        "\nSelect your language:" 18 50 8 \
-        "en_US.UTF-8"  "English (United States)" \
-        "en_GB.UTF-8"  "English (United Kingdom)" \
-        "de_DE.UTF-8"  "Deutsch (Germany)" \
-        "fr_FR.UTF-8"  "Français (France)" \
-        "es_ES.UTF-8"  "Español (Spain)" \
-        "it_IT.UTF-8"  "Italiano (Italy)" \
-        "pt_BR.UTF-8"  "Português (Brazil)" \
-        "ar_SA.UTF-8"  "العربية (Arabic)" \
-        3>&1 1>&2 2>&3) || exit 0
+    print_header
+    gum style --margin "0 0 0 2" --foreground "$GUM_ACCENT" "Select your language:"
+
+    SYSTEM_LANG=$(gum choose \
+        --selected.foreground "$GUM_ACCENT" \
+        --cursor.foreground "$GUM_ACCENT" \
+        --height 10 \
+        "en_US.UTF-8" \
+        "en_GB.UTF-8" \
+        "de_DE.UTF-8" \
+        "fr_FR.UTF-8" \
+        "es_ES.UTF-8" \
+        "it_IT.UTF-8" \
+        "pt_BR.UTF-8" \
+        "ar_SA.UTF-8") || exit 0
+
     export SYSTEM_LANG
 }
 
 ui_keyboard() {
-    SYSTEM_KB=$(branded_dialog --menu \
-        "\nSelect your keyboard layout:" 18 50 8 \
-        "us"     "English (US)" \
-        "uk"     "English (UK)" \
-        "de"     "German" \
-        "fr"     "French" \
-        "es"     "Spanish" \
-        "it"     "Italian" \
-        "br"     "Portuguese (Brazil)" \
-        "ara"    "Arabic" \
-        3>&1 1>&2 2>&3) || exit 0
+    print_header
+    gum style --margin "0 0 0 2" --foreground "$GUM_ACCENT" "Select your keyboard layout:"
+
+    SYSTEM_KB=$(gum choose \
+        --selected.foreground "$GUM_ACCENT" \
+        --cursor.foreground "$GUM_ACCENT" \
+        --height 10 \
+        "us" \
+        "uk" \
+        "de" \
+        "fr" \
+        "es" \
+        "it" \
+        "br" \
+        "ara") || exit 0
+
     export SYSTEM_KB
 }
 
 ui_disk() {
-    local disks=()
+    print_header
+    gum style --margin "0 0 0 2" --foreground "$GUM_ACCENT" "Select installation disk:"
+
+    local disk_list=()
     while IFS= read -r line; do
-        local dev size
+        local dev size model
         dev=$(echo "$line" | awk '{print $1}')
         size=$(echo "$line" | awk '{print $2}')
-        disks+=("/dev/$dev" "$size")
-    done < <(lsblk -dn -o NAME,SIZE -e 7,11 2>/dev/null)
+        model=$(echo "$line" | awk '{$1=$2=""; print $0}' | xargs)
+        disk_list+=("/dev/$dev  $size  $model")
+    done < <(lsblk -dn -o NAME,SIZE,MODEL -e 7,11 2>/dev/null)
 
-    [[ ${#disks[@]} -gt 0 ]] || {
-        branded_dialog --msgbox "No disks found. Cannot continue." 8 40
-        exit 1
-    }
+    [[ ${#disk_list[@]} -gt 0 ]] || die "No disks found!"
 
-    INSTALL_DISK=$(branded_dialog --menu \
-        "\nSelect installation disk:\n\n  WARNING: All data will be erased!" \
-        18 56 6 "${disks[@]}" \
-        3>&1 1>&2 2>&3) || exit 0
+    local selected
+    selected=$(gum choose \
+        --selected.foreground "$GUM_ACCENT" \
+        --cursor.foreground "$GUM_ACCENT" \
+        --height 10 \
+        "${disk_list[@]}") || exit 0
 
-    branded_dialog --yesno \
-        "\n  Are you sure you want to erase:\n\n    $INSTALL_DISK\n\n  This cannot be undone!" \
-        12 46 || exit 0
+    INSTALL_DISK=$(echo "$selected" | awk '{print $1}')
+
+    gum style \
+        --foreground "$GUM_DANGER" \
+        --margin "1 2" \
+        "WARNING: All data on $INSTALL_DISK will be erased!"
+
+    gum confirm \
+        --affirmative "Yes, erase it" \
+        --negative "Go back" \
+        --selected.background "$GUM_DANGER" \
+        "Are you sure?" || ui_disk
 
     export INSTALL_DISK
-    export EFI_PART="${INSTALL_DISK}1"
-    export ROOT_PART="${INSTALL_DISK}2"
+    if echo "$INSTALL_DISK" | grep -q "nvme\|mmcblk"; then
+        export EFI_PART="${INSTALL_DISK}p1"
+        export ROOT_PART="${INSTALL_DISK}p2"
+    else
+        export EFI_PART="${INSTALL_DISK}1"
+        export ROOT_PART="${INSTALL_DISK}2"
+    fi
 }
 
 ui_users() {
-    SYSTEM_HOSTNAME=$(branded_dialog --inputbox \
-        "\nEnter a hostname for your computer:" \
-        10 50 "elezaio" \
-        3>&1 1>&2 2>&3) || exit 0
+    print_header
 
-    SYSTEM_USER=$(branded_dialog --inputbox \
-        "\nEnter your username (lowercase, no spaces):" \
-        10 50 "user" \
-        3>&1 1>&2 2>&3) || exit 0
+    gum style --margin "0 0 0 2" --foreground "$GUM_ACCENT" "Computer name:"
+    SYSTEM_HOSTNAME=$(gum input \
+        --placeholder "elezaio" \
+        --value "${DEFAULT_HOSTNAME:-elezaio}" \
+        --width 40) || exit 0
+
+    gum style --margin "1 0 0 2" --foreground "$GUM_ACCENT" "Username:"
+    SYSTEM_USER=$(gum input \
+        --placeholder "user" \
+        --value "${DEFAULT_USER:-user}" \
+        --width 40) || exit 0
 
     if ! echo "$SYSTEM_USER" | grep -qE '^[a-z][a-z0-9_-]{0,30}$'; then
-        branded_dialog --msgbox "Invalid username. Use lowercase letters, numbers, _ or - only." 8 56
+        gum style --foreground "$GUM_DANGER" "Invalid username! Use lowercase letters only."
+        sleep 2
         ui_users
         return
     fi
 
-    local pass1 pass2
-    pass1=$(branded_dialog --passwordbox \
-        "\nEnter password for $SYSTEM_USER:" \
-        10 50 \
-        3>&1 1>&2 2>&3) || exit 0
+    gum style --margin "1 0 0 2" --foreground "$GUM_ACCENT" "Password:"
+    local pass1
+    pass1=$(gum input --password --placeholder "Enter password" --width 40) || exit 0
 
-    pass2=$(branded_dialog --passwordbox \
-        "\nConfirm password:" \
-        10 50 \
-        3>&1 1>&2 2>&3) || exit 0
+    gum style --margin "1 0 0 2" --foreground "$GUM_ACCENT" "Confirm password:"
+    local pass2
+    pass2=$(gum input --password --placeholder "Confirm password" --width 40) || exit 0
 
     if [[ "$pass1" != "$pass2" ]]; then
-        branded_dialog --msgbox "Passwords do not match. Try again." 8 40
+        gum style --foreground "$GUM_DANGER" "Passwords do not match!"
+        sleep 2
         ui_users
         return
     fi
 
     if [[ ${#pass1} -lt 4 ]]; then
-        branded_dialog --msgbox "Password must be at least 4 characters." 8 44
+        gum style --foreground "$GUM_DANGER" "Password must be at least 4 characters!"
+        sleep 2
         ui_users
         return
     fi
@@ -116,27 +151,32 @@ ui_users() {
 }
 
 ui_summary() {
-    branded_dialog --yesno \
-        "\n  Installation Summary\n\
-  ─────────────────────────────────\n\
-  Disk:      $INSTALL_DISK\n\
-  Hostname:  $SYSTEM_HOSTNAME\n\
-  Username:  $SYSTEM_USER\n\
-  Language:  $SYSTEM_LANG\n\
-  Keyboard:  $SYSTEM_KB\n\
-  ─────────────────────────────────\n\n\
-  Proceed with installation?" \
-        18 50 || exit 0
+    print_header
+    gum style \
+        --align center \
+        --width 60 \
+        --padding "1 4" \
+        --border rounded \
+        --border-foreground "$GUM_SUBTLE" \
+        "Installation Summary\n\n  Disk:      $INSTALL_DISK\n  Hostname:  $SYSTEM_HOSTNAME\n  Username:  $SYSTEM_USER\n  Language:  $SYSTEM_LANG\n  Keyboard:  $SYSTEM_KB"
+
+    gum confirm \
+        --affirmative "Install" \
+        --negative "Cancel" \
+        --selected.background "$GUM_ACCENT" \
+        "Proceed with installation?" || exit 0
 }
 
 ui_done() {
-    branded_dialog --msgbox \
-        "\n  Installation Complete!\n\n\
-  Elezaio Linux has been installed successfully.\n\n\
-  Username:  $SYSTEM_USER\n\
-  Hostname:  $SYSTEM_HOSTNAME\n\n\
-  Remove the USB drive and press OK to reboot." \
-        16 54
+    clear
+    gum style \
+        --align center \
+        --width 60 \
+        --padding "2 4" \
+        --border rounded \
+        --border-foreground "$GUM_ACCENT" \
+        --foreground "$GUM_ACCENT" \
+        "Installation Complete!\n\nElezaio Linux has been installed.\n\nUsername:  $SYSTEM_USER\nHostname:  $SYSTEM_HOSTNAME\n\nRemove the USB drive and reboot."
 
-    reboot
+    gum confirm --affirmative "Reboot now" --negative "Stay" "Reboot?" && reboot
 }
