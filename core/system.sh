@@ -146,11 +146,23 @@ ZSH
 vt = 1
 
 [default_session]
-command = "${SESSION_NAME:-mango}"
-user = "$SYSTEM_USER"
+command = "${SESSION_BINARY:-/usr/bin/${SESSION_NAME:-mango}}"
+user = "greeter"
 GREETD
 
+    # Create greeter user if it doesn't exist
+    _chroot "id greeter &>/dev/null || useradd -M -G video,input,render,seat greeter"
+    _chroot "usermod -aG seat,input,video,render greeter 2>/dev/null || true"
+
+    # XDG_RUNTIME_DIR for greetd
+    mkdir -p "$MOUNT/etc/systemd/system/greetd.service.d"
+    cat > "$MOUNT/etc/systemd/system/greetd.service.d/override.conf" << GREETDENV
+[Service]
+Environment=XDG_RUNTIME_DIR=/run/user/$(id -u greeter 2>/dev/null || echo 1000)
+GREETDENV
+
     _chroot "systemctl enable greetd"
+    _chroot "systemctl enable seatd" || true
     _chroot "systemctl set-default graphical.target"
 
     chroot "$MOUNT" chown -R "$SYSTEM_USER:$SYSTEM_USER" \
