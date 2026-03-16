@@ -229,9 +229,9 @@ core_install() {
 
     _step() {
         local msg="$1"; shift
-        gum spin --spinner dot --title "$msg" \
-            --spinner.foreground "99" \
-            -- "$@" || { _log "FAILED: $msg"; _show_error; exit 1; }
+        gum style --foreground "99" "  ⠋  $msg"
+        "$@" >> "$LOG" 2>&1 || { _log "FAILED: $msg"; _show_error; exit 1; }
+        gum style --foreground "2" "  ✓  $msg"
         _log "OK: $msg"
     }
 
