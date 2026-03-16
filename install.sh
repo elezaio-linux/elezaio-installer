@@ -3,13 +3,11 @@
 # https://github.com/elezaio-linux
 
 touch /tmp/elezaio-install-error.log
-exec 2>/tmp/elezaio-install-error.log
 
-set -uo pipefail
+
 
 export TERM=xterm-256color
 eval "$(resize 2>/dev/null)" || true
-exec < /dev/tty
 
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
