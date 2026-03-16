@@ -1,6 +1,7 @@
 #!/bin/bash
 # Elezaio Linux Installer
 export PATH="/usr/sbin:/sbin:/usr/bin:/bin:$PATH"
+export PATH="/usr/sbin:/sbin:/usr/bin:/bin:$PATH"
 # https://github.com/elezaio-linux
 
 touch /tmp/elezaio-install-error.log
